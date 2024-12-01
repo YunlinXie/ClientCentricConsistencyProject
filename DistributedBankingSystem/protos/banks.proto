@@ -1,0 +1,27 @@
+syntax = "proto3";
+package bank;
+import "google/protobuf/empty.proto";
+
+service Bank {
+    rpc MsgDelivery (TransactionRequest) returns (TransactionResponse);
+    rpc GetWriteID(google.protobuf.Empty) returns (WriteIDResponse);
+}
+message TransactionRequest {
+    int32 customer_id = 1;
+    string operation = 2;
+    int32 amount = 3;
+    int32 branch_id = 4;
+    int32 write_id = 5;
+    repeated WriteSetEntry write_set = 6;
+}
+message TransactionResponse {
+    string status = 1;
+    int32 balance = 2;
+}
+message WriteSetEntry {
+    int32 branch_id = 1;
+    repeated int32 write_ids = 2;
+}
+message WriteIDResponse {
+    int32 write_id = 1;
+}
