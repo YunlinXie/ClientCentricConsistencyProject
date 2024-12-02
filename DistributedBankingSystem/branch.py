@@ -79,6 +79,9 @@ class Branch(banks_pb2_grpc.BankServicer):
             return banks_pb2.TransactionResponse(status="success")
 
     def Query(self, request, context):
+        # Validate writeSet
+        if not self.compareWriteSets(request.write_set):
+            return banks_pb2.TransactionResponse(status="validation_failed")
         return banks_pb2.TransactionResponse(status="success", balance=self.balance)
 
     def Propagate_Deposit(self, request, context):
