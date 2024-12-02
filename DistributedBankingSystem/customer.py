@@ -26,16 +26,16 @@ class Customer:
             required_branch = event["branch"]
             self.connectToBranch(required_branch)
 
+            # Serialize writeSet, even if empty
+            write_set_entries = [
+                WriteSetEntry(branch_id = branch_id, write_ids = write_ids)
+                for branch_id, write_ids in self.writeSet.items()
+            ] if self.writeSet else []  # Handle empty self.writeSet
+
             if event["interface"] in ["deposit", "withdraw"]:
                 # Get unique write ID
                 writeIDResponse = self.stub.GetWriteID(Empty())
                 writeID = writeIDResponse.write_id
-
-                # Serialize writeSet, even if empty
-                write_set_entries = [
-                    WriteSetEntry(branch_id = branch_id, write_ids = write_ids)
-                    for branch_id, write_ids in self.writeSet.items()
-                ] if self.writeSet else []  # Handle empty self.writeSet
 
                 while True:
                     response = self.stub.MsgDelivery(
@@ -66,19 +66,23 @@ class Customer:
                         time.sleep(1)  # Wait for propagation before retrying
 
             elif event["interface"] == "query":
-                response = self.stub.MsgDelivery(
-                    banks_pb2.TransactionRequest(
-                        customer_id = self.id,
-                        operation = "query"
+                while True:
+                    response = self.stub.MsgDelivery(
+                        banks_pb2.TransactionRequest(
+                            customer_id = self.id,
+                            operation = "query",
+                            write_set = write_set_entries
+                        )
                     )
-                )
-                self.recvMsg.append(
-                    {
-                        "id": self.id,
-                        "recv": [
-                            {"interface": "query", "branch": required_branch, "balance": response.balance}
-                        ]
-                    }
-                )
-            
+                    if response.status == "success":
+                        # Store Loggings for output
+                        self.recvMsg.append({
+                            "id": self.id,
+                            "recv": [
+                                {"interface": "query", "branch": required_branch, "balance": response.balance}
+                            ]
+                        })
+                        break  # Exit the retry loop
+                    elif response.status == "validation_failed":
+                        time.sleep(1)  # Wait for propagation before retrying
         print(f"Customer {self.id} received messages: {self.recvMsg}")
